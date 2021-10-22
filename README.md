@@ -20,7 +20,7 @@ Sepp Hochreiter<sup>1 2</sup>_
 ---
 
 #### Detailed blog post on this paper at [this link](https://ml-jku.github.io/cloob).
-#### The full paper is available [here](link).
+#### The full paper is available [here](https://arxiv.org/abs/2110.11316).
 
 ---
 
