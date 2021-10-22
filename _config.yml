@@ -2,6 +2,10 @@ theme: jekyll-theme-cayman
 kramdown:
   math_engine: mathjax
 
+google_analytics: G-0612X8FRB1
+
 # domain: ml-jku.github.io       # if you want to force HTTPS, specify the domain without the http at the start, e.g. example.com
 # url: https://ml-jku.github.io  # the base hostname and protocol for your site, e.g. http://example.com
 # baseurl: /      # place folder name if the site is served in a subfolder
+
+
