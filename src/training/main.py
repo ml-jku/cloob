@@ -80,11 +80,8 @@ def main_worker(gpu, ngpus_per_node, log_queue, args):
         with open(model_config_file, 'r') as f:
             model_info = json.load(f)
         # Additional parameters which are not in the model file
-        model_info['method'] = args.method
         model_info['init_inv_tau'] = args.init_inv_tau
-        model_info['init_scale_hopfield'] = args.init_scale_hopfield
         model_info['learnable_inv_tau'] = args.learnable_inv_tau
-        model_info['learnable_scale_hopfield'] = args.learnable_scale_hopfield
         model_info['seed'] = args.seed
         model = CLIPGeneral(**model_info)
         convert_weights(model)

@@ -153,7 +153,7 @@ def parse_args():
         help="Choice of method (default: cloob)"
     )
     parser.add_argument("--init-inv-tau", type=float, default=14.3, help="Initial inverse tau.")
-    parser.add_argument("--init-scale-hopfield", type=float, default=14.3, help="Initial scale for Hopfield retrieval.")
+    parser.add_argument("--scale-hopfield", type=float, default=14.3, help="Scale for Hopfield retrieval.")
     parser.add_argument(
         "--learnable-inv-tau",
         default=False,

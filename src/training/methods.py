@@ -15,12 +15,12 @@ def infoLOOB_loss(x, y, i, inv_tau):
     return tau * (positives + negatives)
 
 
-def cloob(image_features, text_features, inv_tau, scale_hopfield):
-    p_xx, p_yy, p_xy, p_yx = hopfield_retrieval(image_features, text_features, scale_hopfield)
-    identity = torch.eye(p_xx.shape[1]) > 0.5
+def cloob(image_features, text_features, inv_tau, hopfield_layer):
+    p_xx, p_yy, p_xy, p_yx = hopfield_retrieval(image_features, text_features, hopfield_layer)
+    identity = torch.eye(p_xx.shape[0]) > 0.5
     i = identity.to(p_xx.device)
-    loss_img = infoLOOB_loss(p_xx.T, p_xy.T, i, inv_tau=inv_tau)
-    loss_txt = infoLOOB_loss(p_yy.T, p_yx.T, i, inv_tau=inv_tau)
+    loss_img = infoLOOB_loss(p_xx, p_xy, i, inv_tau=inv_tau)
+    loss_txt = infoLOOB_loss(p_yy, p_yx, i, inv_tau=inv_tau)
     return loss_img + loss_txt
 
 
@@ -35,18 +35,17 @@ def clip(image_features, text_features, inv_tau, loss_fct_img, loss_fct_txt, arg
     return loss_img + loss_txt
 
 
-def hopfield_retrieval(image_features, text_features, scale_hopfield):
-    patterns_xx = hopfield(state_patterns=image_features, stored_patterns=image_features, scale_hopfield=scale_hopfield)
-    patterns_yy = hopfield(state_patterns=text_features, stored_patterns=text_features, scale_hopfield=scale_hopfield)
-    patterns_xy = hopfield(state_patterns=text_features, stored_patterns=image_features, scale_hopfield=scale_hopfield)
-    patterns_yx = hopfield(state_patterns=image_features, stored_patterns=text_features, scale_hopfield=scale_hopfield)
+def hopfield_retrieval(image_features, text_features, hopfield_layer):
+    patterns_xx = hopfield(state_patterns=image_features, stored_patterns=image_features, hopfield_layer=hopfield_layer)
+    patterns_yy = hopfield(state_patterns=text_features, stored_patterns=text_features, hopfield_layer=hopfield_layer)
+    patterns_xy = hopfield(state_patterns=text_features, stored_patterns=image_features, hopfield_layer=hopfield_layer)
+    patterns_yx = hopfield(state_patterns=image_features, stored_patterns=text_features, hopfield_layer=hopfield_layer)
     
     return patterns_xx, patterns_yy, patterns_xy, patterns_yx
 
 
-def hopfield(state_patterns, stored_patterns, scale_hopfield):
-    retrieved_patterns = stored_patterns.T @ nn.functional.softmax(
-        scale_hopfield * stored_patterns @ state_patterns.t(), dim=0)
-    # Column vectors -> dim=0 to normalize the column vectors
-    retrieved_patterns = retrieved_patterns / retrieved_patterns.norm(dim=0, keepdim=True)
+def hopfield(state_patterns, stored_patterns, hopfield_layer):
+    retrieved_patterns = hopfield_layer.forward((stored_patterns.unsqueeze(0), state_patterns.unsqueeze(0), stored_patterns.unsqueeze(0))).squeeze()
+    # Row vectors -> dim=1 to normalize the row vectors
+    retrieved_patterns = retrieved_patterns / retrieved_patterns.norm(dim=1, keepdim=True)
     return retrieved_patterns

@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -9,6 +10,7 @@ import torch.distributed as dist
 import torch.nn as nn
 import wandb
 from torch.cuda.amp import autocast
+from hflayers import Hopfield
 
 from .methods import cloob, clip
 from .zero_shot import zero_shot_eval
@@ -18,11 +20,8 @@ def is_master(args):
     return (not args.distributed) or args.gpu == 0
 
 
-def get_loss(model, images, texts, loss_fct_img, loss_fct_txt, args):
-    if "clip" in args.method:
-        image_features, text_features, inv_tau = model(images, texts)
-    else:
-        image_features, text_features, inv_tau, scale_hopfield = model(images, texts)
+def get_loss(model, images, texts, loss_fct_img, loss_fct_txt, hopfield_layer, args):
+    image_features, text_features, inv_tau = model(images, texts)
     if args.distributed and args.aggregate:
         world_size = dist.get_world_size()
         rank = dist.get_rank()
@@ -53,7 +52,7 @@ def get_loss(model, images, texts, loss_fct_img, loss_fct_txt, args):
 
     if args.method == "cloob":
         loss = cloob(
-            all_image_features, all_text_features, inv_tau, scale_hopfield)
+            all_image_features, all_text_features, inv_tau, hopfield_layer)
     elif args.method == "clip":
         loss = clip(
             all_image_features, all_text_features, inv_tau, loss_fct_img, loss_fct_txt, args)
@@ -69,9 +68,31 @@ def train(model, data, epoch, optimizer, scaler, scheduler, args, tb_writer=None
 
     loss_fct_img = nn.CrossEntropyLoss()
     loss_fct_txt = nn.CrossEntropyLoss()
+
+    model_config_file = Path(__file__).parent / f"model_configs/{args.model.replace('/', '-')}.json"
+    with open(model_config_file, 'r') as f:
+            model_info = json.load(f)
+    hopfield_layer = Hopfield(input_size=model_info['embed_dim'], 
+                              scaling=args.scale_hopfield, 
+                              normalize_hopfield_space=False,
+                              normalize_hopfield_space_affine=False,
+                              normalize_pattern_projection=False,
+                              normalize_pattern_projection_affine=False, 
+                              normalize_state_pattern=False, 
+                              normalize_state_pattern_affine=False, 
+                              normalize_stored_pattern=False, 
+                              normalize_stored_pattern_affine=False,
+                              state_pattern_as_static=True,
+                              pattern_projection_as_static=True,
+                              stored_pattern_as_static=True,
+                              disable_out_projection=True,
+                              num_heads = 1,
+                              dropout=False)
+
     if args.gpu is not None:
         loss_fct_img = loss_fct_img.cuda(args.gpu)
         loss_fct_txt = loss_fct_txt.cuda(args.gpu)
+        hopfield_layer = hopfield_layer.cuda(args.gpu)
 
     if args.distributed and sampler is not None:
         sampler.set_epoch(epoch)
@@ -94,13 +115,13 @@ def train(model, data, epoch, optimizer, scaler, scheduler, args, tb_writer=None
         # with automatic mixed precision.
         if args.precision == "amp":
             with autocast():
-                total_loss = get_loss(model, images, texts, loss_fct_img, loss_fct_txt, args)
+                total_loss = get_loss(model, images, texts, loss_fct_img, loss_fct_txt, hopfield_layer, args)
                 scaler.scale(total_loss).backward()
                 scaler.step(optimizer)
             scaler.update()
 
         else:
-            total_loss = get_loss(model, images, texts, loss_fct_img, loss_fct_txt, args)
+            total_loss = get_loss(model, images, texts, loss_fct_img, loss_fct_txt, hopfield_layer, args)
             total_loss.backward()
             optimizer.step()
 
@@ -118,10 +139,6 @@ def train(model, data, epoch, optimizer, scaler, scheduler, args, tb_writer=None
             percent_complete = 100.0 * i / num_batches_per_epoch
             log_str = f""
             log_data = {}
-
-            if "clip" not in args.method:
-                log_str = f"\tscale_hopfield {m.logit_scale_hopfield.data.exp():.3f}"
-                log_data = {"scale_hopfield": m.logit_scale_hopfield.data.exp().item()}
 
             # logging
             logging.info(
@@ -161,9 +178,29 @@ def evaluate(model, data, epoch, args, tb_writer=None, steps=None):
 
     loss_fct_img = nn.CrossEntropyLoss()
     loss_fct_txt = nn.CrossEntropyLoss()
+    model_config_file = Path(__file__).parent / f"model_configs/{args.model.replace('/', '-')}.json"
+    with open(model_config_file, 'r') as f:
+            model_info = json.load(f)
+    hopfield_layer = Hopfield(input_size=model_info['embed_dim'],
+                              scaling=args.scale_hopfield, 
+                              normalize_hopfield_space=False,
+                              normalize_hopfield_space_affine=False,
+                              normalize_pattern_projection=False,
+                              normalize_pattern_projection_affine=False, 
+                              normalize_state_pattern=False, 
+                              normalize_state_pattern_affine=False, 
+                              normalize_stored_pattern=False, 
+                              normalize_stored_pattern_affine=False,
+                              state_pattern_as_static=True,
+                              pattern_projection_as_static=True,
+                              stored_pattern_as_static=True,
+                              disable_out_projection=True,
+                              num_heads = 1,
+                              dropout=False)
     if args.gpu is not None:
         loss_fct_img = loss_fct_img.cuda(args.gpu)
         loss_fct_txt = loss_fct_txt.cuda(args.gpu)
+        hopfield_layer = hopfield_layer.cuda(args.gpu)
 
     cumulative_loss = 0.0
     num_elements = 0.0
@@ -175,11 +212,7 @@ def evaluate(model, data, epoch, args, tb_writer=None, steps=None):
                 images = images.cuda(args.gpu, non_blocking=True)
                 texts = texts.cuda(args.gpu, non_blocking=True)
 
-            if "clip" in args.method:
-                image_features, text_features, inv_tau = model(images, texts)
-            else:
-                image_features, text_features, inv_tau, scale_hopfield = model(images, texts)
-
+            image_features, text_features, inv_tau = model(images, texts)
             all_image_features.append(image_features)
             all_text_features.append(text_features)
 
@@ -190,7 +223,7 @@ def evaluate(model, data, epoch, args, tb_writer=None, steps=None):
             # Calculate the loss
             if args.method == "cloob":
                 total_loss = cloob(
-                    image_features, text_features, inv_tau, scale_hopfield)
+                    image_features, text_features, inv_tau, hopfield_layer)
             elif args.method == "clip":
                 total_loss = clip(
                     image_features, text_features, inv_tau, loss_fct_img, loss_fct_txt, args)

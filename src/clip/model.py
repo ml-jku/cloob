@@ -353,11 +353,8 @@ def get_backbone(architecture, **kwargs):
 
 class CLIPGeneral(nn.Module):
     def __init__(self,
-                 method: str,
                  init_inv_tau: float = 14.3,
-                 init_scale_hopfield: float = 14.3,
                  learnable_inv_tau: bool = True,
-                 learnable_scale_hopfield: bool = False,
                  backbone_architecture: List[str] = ['ModifiedResNet', 'TextTransformer'],
                  **kwargs
                  ):
@@ -370,14 +367,9 @@ class CLIPGeneral(nn.Module):
             backbone_architecture[1],
             **kwargs.get(f"{backbone_architecture[1]}-1", kwargs))
 
-        self.method = method
-
         # Logit scales for the inner product in the InfoNCE loss
         self.logit_inv_tau = nn.Parameter(torch.ones([]) * np.log(init_inv_tau))
         self.logit_inv_tau.requires_grad = learnable_inv_tau
-        if "clip" not in self.method:
-            self.logit_scale_hopfield = nn.Parameter(torch.ones([]) * np.log(init_scale_hopfield))
-            self.logit_scale_hopfield.requires_grad = learnable_scale_hopfield
 
     @property
     def dtype(self):
@@ -402,10 +394,7 @@ class CLIPGeneral(nn.Module):
 
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-        if "clip" in self.method:
-            return image_features, text_features, self.logit_inv_tau.exp()
-        else:
-            return image_features, text_features, self.logit_inv_tau.exp(), self.logit_scale_hopfield.exp()
+        return image_features, text_features, self.logit_inv_tau.exp()
 
 
 class CLIP(nn.Module):
@@ -422,11 +411,8 @@ class CLIP(nn.Module):
                  transformer_width: int,
                  transformer_heads: int,
                  transformer_layers: int,
-                 method: str = 'clip',
                  init_inv_tau: float = 14.3,
-                 init_scale_hopfield: float = 14.3,
-                 learnable_inv_tau: bool = True,
-                 learnable_scale_hopfield: bool = False
+                 learnable_inv_tau: bool = True
                  ):
         super().__init__()
 
@@ -466,14 +452,9 @@ class CLIP(nn.Module):
 
         self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
 
-        self.method = method
-
         # Logit scales for the inner product in the InfoNCE loss
         self.logit_inv_tau = nn.Parameter(torch.ones([]) * np.log(init_inv_tau))
         self.logit_inv_tau.requires_grad = learnable_inv_tau
-        if "clip" not in self.method:
-            self.logit_scale_hopfield = nn.Parameter(torch.ones([]) * np.log(init_scale_hopfield))
-            self.logit_scale_hopfield.requires_grad = learnable_scale_hopfield
 
         self.initialize_parameters()
 
@@ -546,10 +527,7 @@ class CLIP(nn.Module):
 
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-        if "clip" in self.method:
-            return image_features, text_features, self.logit_inv_tau.exp()
-        else:
-            return image_features, text_features, self.logit_inv_tau.exp(), self.logit_scale_hopfield.exp()
+        return image_features, text_features, self.logit_inv_tau.exp()
 
 
 def convert_weights(model: nn.Module):

@@ -2,10 +2,10 @@
 
 _Andreas Fürst<sup>* 1</sup>,
 Elisabeth Rumetshofer<sup>* 1</sup>,
-Viet Tran<sup>1</sup>,
-Hubert Ramsauer<sup>1</sup>,
-Fei Tang<sup>3</sup>,
 Johannes Lehner<sup>1</sup>,
+Viet Tran<sup>1</sup>,
+Fei Tang<sup>3</sup>,
+Hubert Ramsauer<sup>1</sup>,
 David Kreil<sup>2</sup>,
 Michael Kopp<sup>2</sup>,
 Günter Klambauer<sup>1</sup>,
@@ -41,9 +41,6 @@ cd cloob
 # Create the environment and activate it
 conda env create --file environment.yml
 conda activate cloob
-
-# Additionally, webdataset needs to be installed from git repo for pre-training on YFCC 
-pip install git+https://github.com/tmbdev/webdataset.git
 
 # Add the directory to the PYTHONPATH environment variable
 export PYTHONPATH="$PYTHONPATH:$PWD/src"
@@ -101,7 +98,7 @@ python -u src/training/main.py \
 --epochs=70 \
 --method="cloob" \
 --init-inv-tau=30 \
---init-scale-hopfield=8 \
+--scale-hopfield=8 \
 --workers=8 \
 --model="RN50" \
 --dist-url="tcp://127.0.0.1:6100" \
