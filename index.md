@@ -2,7 +2,7 @@
 layout: default
 title:  "CLOOB: Modern Hopfield Networks with InfoLOOB Outperform CLIP"
 description: Blog post
-date:   2022-02-11 18:00:00 +0200
+date:   2022-06-13 10:00:00 +0200
 usemathjax: true
 ---
 
@@ -42,13 +42,12 @@ A sketch of CLOOB and zero-shot transfer learning results for [CLOOB][arxiv-pape
 # Table of Contents
 1. [CLOOB: Modern Hopfield Networks with InfoLOOB](#cloob)
 2. [Introducing CLOOB to Solve the Explaining Away Problem of CLIP](#cloob_intro)
-3. [Explaining the Explaining Away Problem](#explaing_away)
-4. [Modern Hopfield Networks to Tackle the Explaining Away Problem](#mhn)
-5. [InfoLOOB to Tackle the Explaining Away Problem](#infoloob)
-8. [Experiments](#experiments)
-9. [Code and Paper](#codeAndPaper)
-10. [Additional Material](#material)
-11. [Correspondence](#correspondence)
+3. [Modern Hopfield Networks to Tackle the Explaining Away Problem](#mhn)
+4. [InfoLOOB to Avoid InfoNCE’s Saturation Problem](#infoloob)
+5. [Experiments](#experiments)
+6. [Code and Paper](#codeAndPaper)
+7. [Additional Material](#material)
+8. [Correspondence](#correspondence)
 
 
 ## CLOOB: Modern Hopfield Networks with InfoLOOB <a name="cloob"></a>
@@ -65,13 +64,13 @@ Contrastive learning has two simultaneous goals:
 
 Compared to CLIP, CLOOB increases the uniformity while preserving the alignment by introducing two new components:
 
-- First CLOOB utilizes modern Hopfield networks to steadily extract more covariance structure during learning.
+- CLOOB utilizes **modern Hopfield networks** to extract more covariance structure during learning. 
 CLOOB substitutes the embeddings of the input sample by embeddings 
 that are retrieved from a modern Hopfield network storing reference samples.
+Therefore CLOOB solves CLIP's problem of insufficiently extracting feature co-occurences and covariance structure in the original multi-modal data.
 
-- Second, CLOOB uses InfoLOOB as objective to avoid the saturation of CLIP's InfoNCE objective.
-Avoiding saturation leads to more uniformity in the embeddings on the hypersphere. 
-
+- CLOOB uses **InfoLOOB** as objective to avoid the saturation of the InfoNCE objective used in CLIP.
+Modern Hopfield networks exacerbate the saturation problem of the InfoNCE objective caused by the increased similarity of retrieved samples. InfoLOOB does not suffer from saturation.
 
 ### CLOOB Architecture <a name="architecture"></a>
 
@@ -87,7 +86,7 @@ retrieve the embeddings $$\BU_{\Bx_i}$$ and $$\BU_{\By_i}$$, respectively,
 from a modern Hopfield network that stores image embeddings $$\BU$$ (two green boxes in the left block).
 The retrieved image embedding $$\BU_{\Bx_i}$$ serves as anchor in order to contrast 
 the positive image embedding $$\BU_{\By_i}$$ with the negative image embeddings $$\BU_{\By_j}$$ for $$j \ne i$$.
-Analog, for the second modern Hopfield network
+Analogously -- for the second modern Hopfield network
 that stores text embeddings $$\BV$$ (two green boxes in the right block).
 
 {:refdef: style="text-align: center;"}
@@ -131,112 +130,48 @@ CLIP learns expressive image embeddings directly from associated language
 (image - caption pairs).  
 These rich embeddings empower CLIP
 to become 
-one of the most important foundation models  ([Bommasani et al., 2021][bommasani:21-paper]).
+one of the most important foundation models ([Bommasani et al., 2021][bommasani:21-paper]).
 
-Though CLIP yielded striking zero-shot transfer learning results, it still suffers from "explaining away" ([Wellman and Henrion, 1993][wellman:93-paper]).
-Explaining away is the confirmation of one cause of an observed event which prevents the method from finding alternative causes.
+Though CLIP yielded striking zero-shot transfer learning results, 
+it still suffers from **"explaining away"**.
+Explaining away is known in reasoning as the concept that
+the confirmation of one cause of an observed event 
+dismisses alternative causes ([Pearl, 1988][pearl:88-paper]; [Wellman and Henrion, 1993][wellman:93-paper]).
+CLIP's explaining away problem is its focus on one or few features while
+neglecting other relevant features.
+This problem is caused by insufficiently extracting 
+feature co-occurrences and covariance structures in 
+the original multi-modal data. 
 
-Explaining away can be caused by one or both of the following two problems:
-- (1) Learning poorly extracts the covariance structure in the data.
-- (2) Learning focuses too much on few particular features.
-
-Explaining away impedes the increase of both alignment and uniformity in contrastive learning.
 
 
-## Explaining the Explaining Away Problem <a name="explaing_away"></a>
-
-### Examples of Failures Caused by Explaining Away
-
-Explaining away can lead to "shortcut learning" ([Geirhos et al., 2020][geirhos:20-paper])
-or the "Clever Hans" phenomenon ([Lapuschkin et al., 2019][lapuschkin:19-paper]).
-
-The left image below is classified as *elephant* because of the texture that resembles the skin of an elephant.
-The right image is classified as *sheep* since sheeps are often observed in such landscapes ([Shane, 2018][aiweirdness:18-blog]).
-
-{:refdef: style="text-align: center;"}
-![not found](/assets/shortcut_examples.png){:width="800px"}
-{: refdef}
-
-The left image below is classified as a *boat* only because of wave and horizon line features.
-Therefore, boat features are explained away ([Lapuschkin et al., 2019][lapuschkin:19-paper]).
-
-{:refdef: style="text-align: center;"}
-![not found](/assets/cleverHans4_crop.png){:width="800px"}
-{: refdef}
-
-In psychology, explaining away by spurious
-correlation is know as the Clever Hans phenomenon ([Lapuschkin et al., 2019][lapuschkin:19-paper]).
-For example, the left image below is classified as a *horse* solely because of the source tag,
-which is a spurious correlation for the class *horse* in this dataset.
-
-{:refdef: style="text-align: center;"}
-![not found](/assets/cleverHans_crop.png){:width="800px"}
-{: refdef}
-
-### Explaining Away Hampers Applications to the Real World <a name="explainAwayHampers"></a>
-
-Explaining away leads to models that take only few features into account, thereby limiting their robustness and, in turn, their application to the real world. 
-This is one reason why current models perform very well on standard benchmarks,
-but fail at new data, new applications, deployments in the wild, 
-and stress tests ([D’Amour et al., 2020][dAmour:20-paper]; [Recht et al., 2019][recht:19-paper]; [Taori et al., 2020][taori:20-paper]; [Geirhos et al., 2020][geirhos:20-paper]).
-Therefore, we require models that better exploit co-occurrences and covariance of features.
-
-### Humans are not Affected by the Explaining Away Problem <a name="explainAwayHumans"></a>
-
-Humans exploit contexts and co-occurences when interacting 
-with their environment, therefore are not prone to explaining away issues. 
-
-In psychology, "contextual cueing" refers to the fact 
-that items appearing in repeated configurations are recognized faster ([Chun and Jiang, 1998][chun:98-paper]), 
-while "compound cueing" refers to combining multiple items for better recognition
-([Chance and Kahana, 1997][chance:97-paper]; [Kahana and Caplan, 2002][kahana:02-paper]).
-Humans facilitate object recognition by learned associations (covariation) 
-and co-occurrences via memories of perceptual interactions that have been experienced ([Palmer, 1975][palmer:75-paper];
-[Chun and Jiang, 1998][chun:98-paper]; 
-[Chun and Jiang, 1999][chun:99-paper]; 
-[Davenport and Potter, 2004][davenport:04-paper]; 
-[Bonner and Epstein, 2021][bonner:21-paper]).
-
+Humans extract co-occurrences and covariances
+by associating current perceptions with memories ([Bonner and Epstein, 2021][bonner:21-paper]; [Potter, 2012][potter:12-paper]).
 For example, objects like a cake can
 be recognized even if blurred when a teacup is close to it.
+Humans associate drinking tea with cake 
+because of their past experiences stored in long term memory.
 
 {:refdef: style="text-align: center;"}
 ![not found](/assets/teahouse_real.jpg){:width="800px"}
 {: refdef}
 
-A model might misclassify the following image as an aquarium solely.
+In the following image, the part of the picture above the bed suggests that it is an aquarium.
 Yet the co-occurence and placement of the pillows, the bed linen and the bedside lamps together strongly suggest a bedroom to humans.
 
 {:refdef: style="text-align: center;"}
 ![not found](/assets/bedroom_aquarium.jpg){:width="800px"}
 {: refdef}
 
-In cognitive science, this concept of context exploitation is known as CSTM (Conceptual short term memory) which states that humans, who perceive a stimulus,
-immediately associate it with information stored in the long term
-memory.
->CSTM is represented as a combination
-of new perceptual information and associations
-from long term memory (LTM) out of which
-structures are built.
-Material that is not included in the resulting
-structure is quickly forgotten ([Potter, 2012][potter:12-paper]).
-
-The CSTM model retrieves patterns from an associative memory to amplify
-contexts and co-occurrences, therefore supports compound
-and contextual cueing. 
-Consequently, the human perception is used to retrieve patterns from an associative memory. Contexts and co-occurences are amplified in the retrieval, while peculiarities of the current perception are filtered out.
-
-In analogy to cueing and CSTM, we use modern Hopfield networks 
-to amplify co-occurrences and covariance structures of the data.
-Additionally, we use the InfoLOOB objective to avoid the explaining away effect caused by the saturation of the InfoNCE objective.
-
-CLOOB uses modern Hopfield networks and InfoLOOB to tackle the explaining away problem, 
-as described in the next two sections.
+In analogy to these human cognitive processes, 
+we suggest to use modern Hopfield networks to amplify co-occurrences and 
+covariance structures of the original data.
 
 
 ## Modern Hopfield Networks to Tackle the Explaining Away Problem<a name="mhn"></a>
 
-**Modern Hopfield Networks.** Modern Hopfield networks are associative memories that have much higher storage capacity than classical Hopfield networks and can retrieve patterns with one update only ([Ramsauer et al., 2021][ramsauer:21-paper]; [Widrich et al., 2020][widrich:20-paper]).
+**Modern Hopfield Networks.** 
+Modern Hopfield networks are associative memories that have much higher storage capacity than classical Hopfield networks and they can retrieve patterns with one update only ([Ramsauer et al., 2021][ramsauer:21-paper]; [Widrich et al., 2020][widrich:20-paper]).
 
 Details about modern Hopfield networks are available in the blog
 [Hopfield Networks is All You Need][ml-blog-hopfield].
@@ -244,8 +179,8 @@ Details about modern Hopfield networks are available in the blog
 **Associative Memory.** Similar to the associative memory of humans,
 our approach uses associative memories to amplify
 co-occurences and the covariance structure.
-The associative memory of our choice are modern Hopfield networks 
-because of their fast retrieval and high storage capacity 
+The associative memory of our choice is a modern Hopfield network 
+because of its fast retrieval and high storage capacity,
 as shown in [Hopfield networks is all you need](https://arxiv.org/abs/2008.02217).
 The update mechanism of modern Hopfield networks is equivalent to
 the self-attention mechanism of Transformer networks.
@@ -261,7 +196,7 @@ multiple instance learning, or
 averaging and pooling operations. 
 For details, see our blog [Hopfield Networks is All You Need](https://ml-jku.github.io/hopfield-layers/).
 
-**Amplifying Co-occurences and Covariance Structures.** Instead of using directly the embeddings of the input samples,
+**Amplifying Co-occurences and Covariance Structures to Mitigate Explaining Away.** Instead of using directly the embeddings of the input samples,
 we suggest to use embeddings that
 are retrieved from a modern Hopfield network that stores reference embeddings.
 The retrieved embeddings possess richer co-occurrences and covariance structures as they are obtained by averaging over all stored reference samples that are similar to the input sample. 
@@ -311,8 +246,14 @@ The following figure shows the relative change of the number of effective eigenv
 Modern Hopfield networks consistently increase the number of effective eigenvalues during learning. Consequently, modern Hopfield networks enable to extract more covariance structure during learning, thereby mitigate explaining away.
 
 
-## InfoLOOB to Tackle the Explaining Away Problem<a name="infoloob"></a>
+## InfoLOOB to Avoid InfoNCE's Saturation Problem<a name="infoloob"></a>
 
+However, modern Hopfield networks lead to a higher similarity of retrieved samples.
+The increased similarity exacerbates the saturation of the InfoNCE objective.
+We propose InfoLOOB as an objective 
+to avoid saturation as observed with InfoNCE.
+
+In the following we formally present the setting and the InfoNCE and InfoLOOB objectives.
 The training set consists of $$N$$ matched pairs $$\{(\Bx_1,\By_1),(\Bx_2,\By_2),\ldots,(\Bx_N,\By_N)\}$$.
 In the following objectives, for an anchor sample $$\Bx_i$$
 a positive sample $$\By_i$$ is contrasted with
@@ -339,7 +280,7 @@ $$
 
 <br /><br />
 In expectation, $$\exp (\tau^{-1} \ \Bx_i^T \By_i)$$ has a high value for a matched pair 
-and $$\exp (\tau^{-1} \ \Bx_j^T \By_i)$$ as well as $$\exp (\tau^{-1} \ \Bx_i^T \By_j)$$ has a low value for an unmatched pair.
+and $$\exp (\tau^{-1} \ \Bx_j^T \By_i)$$ as well as $$\exp (\tau^{-1} \ \Bx_i^T \By_j)$$ have a low value for unmatched pairs.
 
 **Saturation of InfoNCE.**
 InfoNCE saturates because it contains terms of the form $$a/(a + b)$$. In analogy to [Wang and Isola (2020)][wang:20-paper], $$a$$ is called the "alignment score" that measures the similarity of matched pairs and $$b$$ the "uniformity penalty" that measures the similarity of unmatched pairs.
@@ -356,6 +297,7 @@ $$
 $$
 
 Obviously, for a large similarity $$a$$, the InfoNCE objective saturates and increasing $$a$$ has a small effect.
+The saturation problem becomes more severe for the retrieved samples of a modern Hopfield network since the alignment score $$a$$ increases.
 
 **InfoLOOB Prevents Saturation.**
 The state where learning is stalled can be avoided by objectives of the form $$a/b$$.
@@ -385,8 +327,8 @@ Models trained with the InfoLOOB objective develop more uniform image and text e
 ## Experiments <a name="experiments"></a>
 
 **Methods Compared.**
-We compare CLOOB to CLIP ([Radford et al., 2021][radford:21-paper]). 
-We used a reimplementation of CLIP from OpenCLIP ([Ilharco et al., 2021][ilharco:21-github]) to obtain results, where results of the OpenAI CLIP were not available. 
+The methods CLIP and our new CLOOB are compared ([Radford et al., 2021][radford:21-paper]). 
+We use a reimplementation of CLIP from OpenCLIP ([Ilharco et al., 2021][ilharco:21-github]) to obtain results where results of the OpenAI CLIP were not available. 
 
 **Evaluation.** After pretraining, we evaluate the performance of the methods on seven downstream zero-shot transfer learning tasks with respect to their accuracy.  
 
@@ -398,7 +340,7 @@ image-text pairs.
 
 **Results.** Zero-shot results for models trained on CC with ResNet-50 vision encoders for two different
 checkpoints. 
-Results are given as mean accuracy over 5 runs. Statistically significant results are shown in bold.
+Results show the mean accuracy over 5 runs. Statistically significant results are shown in bold.
 CLIP and CLOOB were trained for 31 epochs while CLIP* and CLOOB* were trained
 for 128 epochs. 
 **In the majority of tasks CLOOB significantly outperforms CLIP**. 
@@ -414,7 +356,7 @@ The YFCC dataset, a subset of YFCC100M ([Thomee et al., 2016][thomee:16-paper]),
 15 million image-text pairs but the textual description is 
 less rich than for CC and often lacks meaningful information. 
 
-**Results Different Encoder Sizes.** Zero-shot results for the reimplementation of CLIP and CLOOB using different ResNet
+**Results for Different Encoder Sizes.** Zero-shot results for the reimplementation of CLIP and CLOOB using different ResNet
 architectures trained on YFCC. 
 Using ResNet-50 encoders, CLOOB outperforms the CLIP
 in 7 out of 8 tasks. **The performance of CLOOB scales with increased encoder size.**
@@ -442,11 +384,13 @@ in 7 out of 8 tasks. **The performance of CLOOB scales with increased encoder si
 
 - [Paper: Hopfield Networks is All You Need][ramsauer:21-paper]
 
-- [Blog: Hopfield Networks is All You Need][ml-blog-hopfield]
+- [Blog post on Modern Hopfield Networks][ml-blog-hopfield]
 
 - [GitHub repository: hopfield-layers][github-hopfield]
 
 - [Paper: Modern Hopfield Networks and Attention for Immune Repertoire Classification][widrich:20-paper]
+
+- [Paper: Contrastive learning of image- and structure-based representations in drug discovery][sanchez:22]
 
 - [Yannic Kilcher's video on modern Hopfield networks][kilcher-hopfield]
 
@@ -454,12 +398,14 @@ in 7 out of 8 tasks. **The performance of CLOOB scales with increased encoder si
 
 - [Blog post on Energy-Based Perspective on Attention Mechanisms in Transformers][mcbal:20-blog]
 
+- [Blog post on Modern Hopfield Networks for Tabular Data][ml-blog-hopular]
+
 For more information visit our homepage [https://ml-jku.github.io/][ml-blog].
 
 
 ## Correspondence <a name="correspondence"></a>
 
-This blog post was written by Elisabeth Rumetshofer and Andreas Fürst. 
+This blog post was written by Elisabeth Rumetshofer and Andreas Fürst.
 
 Contributions by Angela Bitto-Nemling, Michael Kopp, Johannes Lehner, Viet Tran, Günter Klambauer and Sepp Hochreiter.
 
@@ -475,6 +421,7 @@ Please contact us via cloob[at]ml.jku.at
 
 [ml-blog-hopfield]: https://ml-jku.github.io/hopfield-layers/
 [ml-blog-performer]: https://ml-jku.github.io/blog-post-performer/
+[ml-blog-hopular]: https://ml-jku.github.io/hopular/
 [github-hopfield]: https://github.com/ml-jku/hopfield-layers
 [kilcher-hopfield]: https://www.youtube.com/watch?v=nv6oFDp6rNQ
 
@@ -495,12 +442,14 @@ Please contact us via cloob[at]ml.jku.at
 [lapuschkin:19-paper]: https://www.nature.com/articles/s41467-019-08987-4 
 [mcbal:20-blog]: https://mcbal.github.io/post/an-energy-based-perspective-on-attention-mechanisms-in-transformers
 [palmer:75-paper]: https://pubmed.ncbi.nlm.nih.gov/24203874/
+[pearl:88-paper]: https://ftp.cs.ucla.edu/pub/stat_ser/r69-reprint.pdf
 [poole:19-paper]: http://proceedings.mlr.press/v97/poole19a.html
 [potter:12-paper]: https://www.frontiersin.org/articles/10.3389/fpsyg.2012.00113/full
 [prentice:78-paper]: https://projecteuclid.org/journals/annals-of-statistics/volume-6/issue-1/On-Invariant-Tests-of-Uniformity-for-Directions-and-Orientations/10.1214/aos/1176344075.full
 [radford:21-paper]: http://proceedings.mlr.press/v139/radford21a.html
 [ramsauer:21-paper]: https://openreview.net/forum?id=tL89RnzIiCd  
 [recht:19-paper]: http://proceedings.mlr.press/v97/recht19a.html
+[sanchez:22]: https://openreview.net/pdf?id=OdXKRtg1OG
 [sharma:18-paper]: https://aclanthology.org/P18-1238/
 [taori:20-paper]: https://proceedings.neurips.cc/paper/2020/hash/d8330f857a17c53d217014ee776bfd50-Abstract.html
 [thomee:16-paper]: https://dl.acm.org/doi/10.1145/2812802
